@@ -4,22 +4,23 @@ import 'package:terminal_test/utils.dart';
 // import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
 import 'package:flutter_pty/flutter_pty.dart';
+import 'package:terminal_test/settings.dart' as settings;
 
 class TerminalTextBlock extends StatelessWidget {
   final String text;
+  final double height;
 
-  const TerminalTextBlock({super.key, required this.text});
+  const TerminalTextBlock(
+      {super.key, required this.text, required this.height});
 
   @override
   Widget build(BuildContext context) {
-    var terminal = Terminal(maxLines: 100);
-    var terminalView = TerminalView(terminal);
+    var terminal = Terminal();
     terminal.write(text);
+    var terminalView = TerminalView(terminal, readOnly: true);
     print('text: $text');
 
-    return ConstrainedBox(
-        constraints: BoxConstraints.loose(Size(800, 600)),
-        child: Container(padding: EdgeInsets.all(8), child: terminalView));
+    return SizedBox(height: height, child: terminalView);
   }
 }
 
@@ -68,9 +69,16 @@ class TerminalExecutionBlockView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        TerminalTextBlock(text: record.prompt + record.input),
+        settings.InputEncloser(
+            child: TerminalTextBlock(
+                text: record.prompt + record.input,
+                height: settings.Settings.recordInputCellHeight)),
         // Text(record.prompt + record.input),
-        TerminalTextBlock(text: record.output)
+        settings.OutputEncloser(
+            child: TerminalTextBlock(
+          text: record.output,
+          height: settings.Settings.recordOutputCellHeight,
+        ))
         // Text(record.output)
       ],
     );

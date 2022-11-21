@@ -6,6 +6,7 @@ import 'package:flutter_pty/flutter_pty.dart';
 import 'package:terminal_test/block_view.dart';
 import 'package:terminal_test/utils.dart' as utils;
 import 'package:terminal_test/constants.dart';
+import 'package:terminal_test/settings.dart' as settings;
 
 class TerminalReference {
   Terminal terminal = Terminal();
@@ -40,8 +41,33 @@ class _BlockedTerminalState extends State<BlockedTerminal> {
 
   List<utils.ExecutionRecord> executionRecords = [];
 
+  Terminal createTerminal() {
+    var terminal = Terminal();
+    terminal.setAutoWrapMode(true);
+    return terminal;
+  }
+
+  TerminalView createTerminalView(Terminal terminal) {
+    var view = TerminalView(
+      terminal,
+      autofocus: true,
+    );
+    return view;
+  }
+
+  final ScrollController _controller = ScrollController();
+
+  void _scrollToBottom() {
+    _controller.animateTo(
+      _controller.position.maxScrollExtent * 2,
+      duration: Duration(seconds: 2),
+      curve: Curves.fastOutSlowIn,
+    );
+    // _controller.jumpTo(_controller.position.maxScrollExtent);
+  }
+
   _BlockedTerminalState() {
-    terminalReference.terminal = Terminal();
+    terminalReference.terminal = createTerminal();
     pty = Pty.start("bash");
 
     pty.output.cast<List<int>>().transform(const Utf8Decoder()).listen((data) {
@@ -86,7 +112,7 @@ class _BlockedTerminalState extends State<BlockedTerminal> {
                   input: lastCommand,
                   output: outputBuffer.join('')));
               // clear the terminal
-              terminalReference.terminal = Terminal();
+              terminalReference.terminal = createTerminal();
               terminalReference.terminal.onOutput = onTerminalOutputCallback;
               // terminal.buffer.lines.clear();
               terminalReference.terminal.write(currentPrompt);
@@ -105,6 +131,7 @@ class _BlockedTerminalState extends State<BlockedTerminal> {
       }
 
       setState(() {});
+      _scrollToBottom();
     });
 
     onTerminalOutputCallback = (data) {
@@ -136,16 +163,20 @@ class _BlockedTerminalState extends State<BlockedTerminal> {
   @override
   Widget build(BuildContext context) {
     // print('build: record length: ${executionRecords.length}');
+
     return ListView(
+        controller: _controller,
         children: executionRecords
                 .map((e) => TerminalExecutionBlockView(record: e) as Widget)
                 // .map((e) => Text(e.output) as Widget)
                 // .map((e) => Text('cute') as Widget)
                 .toList() +
             [
-              ConstrainedBox(
-                  constraints: BoxConstraints.loose(Size(800, 600)),
-                  child: TerminalView(terminalReference.terminal))
+              settings.InteractiveTerminalEncloser(
+                  child: ConstrainedBox(
+                      constraints: BoxConstraints.loose(Size(double.infinity,
+                          settings.Settings.interactiveCellHeight)),
+                      child: createTerminalView(terminalReference.terminal)))
             ]);
   }
 }
