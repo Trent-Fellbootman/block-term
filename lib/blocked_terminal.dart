@@ -7,6 +7,7 @@ import 'package:terminal_test/block_view.dart';
 import 'package:terminal_test/utils.dart' as utils;
 import 'package:terminal_test/constants.dart';
 import 'package:terminal_test/settings.dart' as settings;
+import 'ui_elements.dart';
 
 class TerminalReference {
   Terminal terminal = Terminal();
@@ -32,6 +33,9 @@ class _BlockedTerminalState extends State<BlockedTerminal> {
   String currentPrompt = '';
   TerminalReference terminalReference = TerminalReference();
   // Terminal terminal = Terminal();
+
+  DateTime executionStart = DateTime.now();
+  late Duration lastElapsedTime;
 
   bool firstPromptDisplayed = false;
 
@@ -103,14 +107,19 @@ class _BlockedTerminalState extends State<BlockedTerminal> {
             var lastPrompt = currentPrompt;
             currentPrompt = data.substring(match.start);
 
+            lastElapsedTime = DateTime.now().difference(executionStart);
+
             currentState = utils.TerminalState.input;
 
-            // add new I/O block view
             if (firstPromptDisplayed) {
-              executionRecords.add(utils.ExecutionRecord(
-                  prompt: lastPrompt,
-                  input: lastCommand,
-                  output: outputBuffer.join('')));
+              // add new I/O block view
+              executionRecords.add(
+                utils.ExecutionRecord(
+                    prompt: lastPrompt,
+                    input: lastCommand,
+                    output: outputBuffer.join(''),
+                    elapsedTime: lastElapsedTime),
+              );
               // clear the terminal
               terminalReference.terminal = createTerminal();
               terminalReference.terminal.onOutput = onTerminalOutputCallback;
@@ -141,12 +150,12 @@ class _BlockedTerminalState extends State<BlockedTerminal> {
                   currentCommand[currentCommand.length - 1]))) {
         // submit command
         print('submit command: $currentCommand');
+        currentState = utils.TerminalState.execution;
+        executionStart = DateTime.now();
+        outputBuffer.clear();
         lastCommand = currentCommand;
         currentCommand = '';
       }
-
-      currentState = utils.TerminalState.execution;
-      outputBuffer.clear();
 
       pty.write(const Utf8Encoder().convert(data));
     };
@@ -164,6 +173,11 @@ class _BlockedTerminalState extends State<BlockedTerminal> {
   Widget build(BuildContext context) {
     // print('build: record length: ${executionRecords.length}');
 
+    var interactiveTerminalView = ConstrainedBox(
+        constraints: BoxConstraints.loose(
+            Size(double.infinity, settings.Settings.interactiveCellHeight)),
+        child: createTerminalView(terminalReference.terminal));
+
     return ListView(
         controller: _controller,
         children: executionRecords
@@ -173,10 +187,16 @@ class _BlockedTerminalState extends State<BlockedTerminal> {
                 .toList() +
             [
               settings.InteractiveTerminalEncloser(
-                  child: ConstrainedBox(
-                      constraints: BoxConstraints.loose(Size(double.infinity,
-                          settings.Settings.interactiveCellHeight)),
-                      child: createTerminalView(terminalReference.terminal)))
+                  child: Column(
+                      children: currentState == utils.TerminalState.execution
+                          ? [
+                              interactiveTerminalView,
+                              ProgressIndicatorBar(
+                                  isCompleted: false,
+                                  time:
+                                      DateTime.now().difference(executionStart))
+                            ]
+                          : [interactiveTerminalView]))
             ]);
   }
 }

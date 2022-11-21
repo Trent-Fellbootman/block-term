@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:terminal_test/ui_elements.dart';
 import 'package:terminal_test/utils.dart';
 // import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
@@ -75,10 +76,13 @@ class TerminalExecutionBlockView extends StatelessWidget {
                 height: settings.Settings.recordInputCellHeight)),
         // Text(record.prompt + record.input),
         settings.OutputEncloser(
-            child: TerminalTextBlock(
-          text: record.output,
-          height: settings.Settings.recordOutputCellHeight,
-        ))
+            child: Column(children: [
+          TerminalTextBlock(
+            text: record.output,
+            height: settings.Settings.recordOutputCellHeight,
+          ),
+          ProgressIndicatorBar(isCompleted: true, time: record.elapsedTime)
+        ]))
         // Text(record.output)
       ],
     );
