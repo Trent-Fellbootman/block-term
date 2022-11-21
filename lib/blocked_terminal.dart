@@ -7,6 +7,10 @@ import 'package:terminal_test/block_view.dart';
 import 'package:terminal_test/utils.dart' as utils;
 import 'package:terminal_test/constants.dart';
 
+class TerminalReference {
+  Terminal terminal = Terminal();
+}
+
 class BlockedTerminal extends StatefulWidget {
   const BlockedTerminal({super.key});
 
@@ -19,11 +23,14 @@ class _BlockedTerminalState extends State<BlockedTerminal> {
 
   utils.TerminalState currentState = utils.TerminalState.execution;
 
+  late Function(String) onTerminalOutputCallback;
+
   List<String> outputBuffer = [];
   String lastCommand = '';
   String currentCommand = '';
   String currentPrompt = '';
-  Terminal terminal = Terminal();
+  TerminalReference terminalReference = TerminalReference();
+  // Terminal terminal = Terminal();
 
   bool firstPromptDisplayed = false;
 
@@ -34,14 +41,15 @@ class _BlockedTerminalState extends State<BlockedTerminal> {
   List<utils.ExecutionRecord> executionRecords = [];
 
   _BlockedTerminalState() {
+    terminalReference.terminal = Terminal();
     pty = Pty.start("bash");
 
     pty.output.cast<List<int>>().transform(const Utf8Decoder()).listen((data) {
       // write to terminal
-      terminal.write(data);
+      terminalReference.terminal.write(data);
 
       // get buffer text
-      var bufferList = terminal.lines.toList();
+      var bufferList = terminalReference.terminal.lines.toList();
       bufferList.removeWhere((element) => element.toString() == '');
       var bufferText = bufferList.join('\n');
 
@@ -78,8 +86,10 @@ class _BlockedTerminalState extends State<BlockedTerminal> {
                   input: lastCommand,
                   output: outputBuffer.join('')));
               // clear the terminal
-              terminal.buffer.clear();
-              terminal.write(currentPrompt);
+              terminalReference.terminal = Terminal();
+              terminalReference.terminal.onOutput = onTerminalOutputCallback;
+              // terminal.buffer.lines.clear();
+              terminalReference.terminal.write(currentPrompt);
             } else {
               firstPromptDisplayed = true;
             }
@@ -97,7 +107,7 @@ class _BlockedTerminalState extends State<BlockedTerminal> {
       setState(() {});
     });
 
-    terminal.onOutput = (data) {
+    onTerminalOutputCallback = (data) {
       if (Detectors.detectCommandSubmitter(data) &&
           (currentCommand.isEmpty ||
               !Detectors.detectContinuer(
@@ -113,6 +123,8 @@ class _BlockedTerminalState extends State<BlockedTerminal> {
 
       pty.write(const Utf8Encoder().convert(data));
     };
+
+    terminalReference.terminal.onOutput = onTerminalOutputCallback;
 
     pty.exitCode.then((_) {
       // inputBuffer.clear();
@@ -133,7 +145,7 @@ class _BlockedTerminalState extends State<BlockedTerminal> {
             [
               ConstrainedBox(
                   constraints: BoxConstraints.loose(Size(800, 600)),
-                  child: TerminalView(terminal))
+                  child: TerminalView(terminalReference.terminal))
             ]);
   }
 }
